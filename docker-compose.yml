@@ -1,0 +1,109 @@
+services:
+
+  rabbitmq:
+    image: rabbitmq:3.7.6-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - "TZ=@timezone@"
+    healthcheck:
+      test: [ "CMD", "rabbitmqctl", "status" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  zipkin:
+    image: openzipkin/zipkin:2.23.0
+    container_name: zipkin
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "9411:9411"
+    environment:
+      - "TZ=@timezone@"
+      - "RABBIT_URI=amqp://guest:guest@rabbitmq:5672"
+
+  postgres_usuarios:
+    image: postgres:17.2-alpine3.21
+    container_name: "pizzeberus_usuarios_db"
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret_usuarios
+      POSTGRES_DB: usuarios
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d usuarios -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - usuarios-data:/var/lib/postgresql/data
+
+  postgres_pizza:
+    image: postgres:17.2-alpine3.21
+    container_name: "pizzeberus_pizza_db"
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret_pizza
+      POSTGRES_DB: pizzas
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d pizzas -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - pizzas-data:/var/lib/postgresql/data
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    expose:
+      - 9100
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - 3000:3000
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana:/etc/grafana/provisioning/datasources
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prom-data:/prometheus
+
+volumes:
+  usuarios-data:
+  pizzas-data:
+  prom-data:
