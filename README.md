@@ -106,5 +106,3 @@ Lectura
 - RNF8: Servicios con circuit brakers usando Spring Cloud Circuit Breaker
 - RNF9: Seguimiento y trazabilidad con Spring Cloud Sleuth y Zipking
 - RNF10: Servicios conectados a PostgreSQL
-
-Link: https://gitlabdes.hiberus.com/varichter/introduccion-microservicios
